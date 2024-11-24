@@ -1,18 +1,18 @@
 from fastapi import APIRouter, status
 
-from api_v1.health_check.schemas import HealthCheck
+from api_v1.health_check.schemas import HealthCheckSchema
 
 router = APIRouter()
 
 
 @router.get(
     path="/health",
-    response_model=HealthCheck,
+    response_model=HealthCheckSchema,
     status_code=status.HTTP_200_OK,
     summary="Perform a Health Check",
     response_description="Return HTTP Status Code 200 (OK)",
 )
-def get_health() -> HealthCheck:
+def get_health() -> HealthCheckSchema:
     """
     Endpoint to perform a healthcheck on.
 
@@ -22,4 +22,4 @@ def get_health() -> HealthCheck:
     Returns:
         HealthCheck: Returns a JSON response with the health status
     """
-    return HealthCheck(status="OK")
+    return HealthCheckSchema(status="OK")

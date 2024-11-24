@@ -1,5 +1,5 @@
 from pydantic import BaseModel
 
 
-class HealthCheck(BaseModel):
+class HealthCheckSchema(BaseModel):
     status: str = "OK"
