@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from api_v1.auth.schemas import SignUpSchema, SignUpResponseSchema
 from api_v1.auth.services import AuthService
 from api_v1.auth.dependencies import auth_service_depends
-from exceptions.api_exceptions import APIException
+from api_v1.exceptions.api_exceptions import APIException
 
 
 router = APIRouter()
