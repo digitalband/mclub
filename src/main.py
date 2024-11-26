@@ -4,7 +4,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from api_v1 import router as api_v1_router
+from api_v1.routers import router as api_v1_router
 from core.config import settings
 from exceptions.api_exceptions import APIException
 

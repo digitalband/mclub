@@ -1,16 +1,16 @@
 from typing import Any
 
 from api_v1.auth.utils import JWTHandler
-from api_v1.auth.schemas import PayloadSchema, TokenPairSchema
-from src.core.config import settings
+from api_v1.auth.schemas import SignUpSchema, PayloadSchema, TokenPairSchema
+from core.config import settings
 
 
 class AuthService:
     def __init__(
         self,
-        private_key=settings.auth_jwt.private_key_path.read_text(),
-        public_key=settings.auth_jwt.public_key_path.read_text(),
-        algorithm=settings.auth_jwt.algorithm,
+        private_key: str = settings.auth_jwt.private_key_path.read_text(),
+        public_key: str = settings.auth_jwt.public_key_path.read_text(),
+        algorithm: str = settings.auth_jwt.algorithm,
     ) -> None:
         self.jwt_handler = JWTHandler(
             private_key=private_key,
@@ -18,7 +18,10 @@ class AuthService:
             algorithm=algorithm,
         )
 
-    def _generate_auth_token_pair(self, payload: PayloadSchema) -> TokenPairSchema:
+    async def register_user(self, signup_data: SignUpSchema) -> str:
+        return "1"
+
+    def __generate_auth_token_pair(self, payload: PayloadSchema) -> TokenPairSchema:
         """
         Generates a pair of tokens (access and refresh)
 
