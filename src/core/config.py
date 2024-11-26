@@ -34,7 +34,7 @@ class AuthJWTSettings(BaseSettings):
 
 
 class LoggingSettings(BaseSettings):
-    logging_level: int = logging.WARNING
+    logging_level: int = logging.INFO
 
     def configure_logging(self):
         logging.basicConfig(
