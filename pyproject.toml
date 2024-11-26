@@ -19,6 +19,7 @@ pyjwt = {extras = ["crypto"], version = "^2.10.0"}
 pydantic = {extras = ["email"], version = "^2.10.1"}
 pydantic-extra-types = "^2.10.0"
 phonenumbers = "^8.13.50"
+asyncpg = "^0.30.0"
 
 
 [tool.poetry.group.dev.dependencies]
