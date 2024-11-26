@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 from pydantic import Field
@@ -32,10 +33,22 @@ class AuthJWTSettings(BaseSettings):
     refresh_token_expire_minutes: int = 3600
 
 
+class LoggingSettings(BaseSettings):
+    logging_level: int = logging.WARNING
+
+    def configure_logging(self):
+        logging.basicConfig(
+            level=self.logging_level,
+            datefmt="%Y-%m-%d %H:%M:%S",
+            format="[%(asctime)s.%(msecs)03d] %(module)s:%(lineno)d %(levelname)s - %(message)s",
+        )
+
+
 class Settings(BaseSettings):
     MODE: str
     db: DbSettings = Field(default_factory=DbSettings)
     auth_jwt: AuthJWTSettings = Field(default_factory=AuthJWTSettings)
+    logging: LoggingSettings = Field(default_factory=LoggingSettings)
 
     model_config = SettingsConfigDict(
         env_file=ENV_FILE_PATH,
