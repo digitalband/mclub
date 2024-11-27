@@ -1,10 +1,14 @@
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 from api_v1.auth.utils import JWTHandler
 from api_v1.auth.schemas import SignUpSchema, PayloadSchema, TokenPairSchema, \
                                     VerificationCodeSchema
+from api_v1.auth.repositories.user import UserRepository
 from api_v1.exceptions import UserAlreadyExistsException
 from core.config import settings
+
+if TYPE_CHECKING:
+    from models.user import User
 
 
 class AuthService:
@@ -14,7 +18,7 @@ class AuthService:
             public_key=public_key,
             algorithm=algorithm,
         )
-        self.user_service = UserService()
+        self.user_repo = UserRepository()
 
 
     async def register_user(self, signup_data: SignUpSchema) -> bool:
@@ -26,10 +30,16 @@ class AuthService:
         pass
 
     async def check_email_availability(self, email: str) -> bool:
-        user = await self.user_service.get_user_by_email(email)
+        """
+        Args:
+            email (str): email fot checking
+
+        Returns:
+            bool: True if email available / False is email is busy
+        """
+        user = await self.user_repo.get_user_by_email(email)
         return user is None
     
-
     def __generate_auth_token_pair(self, payload: PayloadSchema) -> TokenPairSchema:
         """
         Generates a pair of tokens (access and refresh)
@@ -74,8 +84,3 @@ class AuthService:
         return self.jwt_handler.encode(
             payload=payload_data, expire_token=expire_minutes
         )
-
-
-class UserService:
-    def __init__(self) -> None:
-        pass
