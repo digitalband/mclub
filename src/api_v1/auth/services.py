@@ -2,24 +2,31 @@ from typing import Any
 
 from api_v1.auth.utils import JWTHandler
 from api_v1.auth.schemas import SignUpSchema, PayloadSchema, TokenPairSchema
+from api_v1.exceptions import UserAlreadyExistsException
 from core.config import settings
 
 
 class AuthService:
-    def __init__(
-        self,
-        private_key: str = settings.auth_jwt.private_key_path.read_text(),
-        public_key: str = settings.auth_jwt.public_key_path.read_text(),
-        algorithm: str = settings.auth_jwt.algorithm,
-    ) -> None:
+    def __init__(self, private_key: str, public_key: str, algorithm: str) -> None:
         self.jwt_handler = JWTHandler(
             private_key=private_key,
             public_key=public_key,
             algorithm=algorithm,
         )
+        self.user_service = UserService()
 
-    async def register_user(self, signup_data: SignUpSchema) -> str:
-        return "1"
+    async def register_user(self, signup_data: SignUpSchema) -> bool:
+        if await self.user_service.get_user_by_email(signup_data.email):
+            raise UserAlreadyExistsException
+
+        return ...
+    
+    # async def confirm_register_user(self, confirmation: ConfirmationSchema) -> str:
+    #     pass
+
+    async def check_email_exists(self, email: str) -> bool:
+        user = await self.user_service.get_user_by_email(email)
+        return user is None
 
     def __generate_auth_token_pair(self, payload: PayloadSchema) -> TokenPairSchema:
         """
@@ -65,3 +72,8 @@ class AuthService:
         return self.jwt_handler.encode(
             payload=payload_data, expire_token=expire_minutes
         )
+
+
+class UserService:
+    def __init__(self) -> None:
+        pass

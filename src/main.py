@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 
 from core.config import settings
 from api_v1.routers import router as api_v1_router
-from api_v1.exceptions.api_exceptions import APIException
+from api_v1.exceptions import APIException
 
 settings.logging.configure_logging()
 
