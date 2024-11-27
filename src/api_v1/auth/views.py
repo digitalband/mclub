@@ -49,7 +49,7 @@ async def check_email(
 
 @router.post(
     path="/signup",
-    response_model=SignInResponseSchema,
+    response_model=SignUpResponseSchema,
     status_code=status.HTTP_202_ACCEPTED,
     summary="Registration",
     response_description="Returns registration confirmation status."
@@ -57,7 +57,7 @@ async def check_email(
 async def signup(
     signup_data: SignUpSchema,
     auth_service: AuthDependency
-) -> SignInResponseSchema:
+) -> SignUpResponseSchema:
     """
     Endpoint for registering a new user.
     
@@ -71,7 +71,7 @@ async def signup(
                                     last name and phone number (optional field).
 
     Returns:
-        SignInResponseSchema: Returns a JSON response indicating that 
+        SignUpResponseSchema: Returns a JSON response indicating that 
                               the verification code was successfully sent 
                               to the email.
     """
@@ -85,6 +85,45 @@ async def signup(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed signup"
+        )
+    
+
+@router.post(
+    path="/signin",
+    response_model=SignInResponseSchema,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Login",
+    response_description="Returns login confirmation status."
+)
+async def signin(
+    signin_data: SignInSchema,
+    auth_service: AuthDependency
+) -> SignInResponseSchema:
+    """
+    Endpoint for login user.
+    
+    This endpoint allows new users to provide the necessary login information. 
+    If the data is correct, a confirmation code is sent to the specified email 
+    address to confirm registration.
+    
+    Args:
+        signin_data (SignUpSchema): Data required to login user (email field)
+
+    Returns:
+        SignInResponseSchema: Returns a JSON response indicating that 
+                              the verification code was successfully sent 
+                              to the email.
+    """
+    try:
+        await auth_service.login_user(signin_data)
+        return SignInResponseSchema(status="OK")
+    except APIException as api_exception:
+        raise api_exception
+    except Exception as e:
+        logging.error(f"Failed signin > {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed signin"
         )
 
 

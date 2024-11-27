@@ -28,8 +28,16 @@ class SignUpSchema(BaseModel):
     phone: Optional[PhoneNumber] = None
 
 
+class SignInSchema(BaseModel):
+    email: EmailStr
+
+
 class BaseResponseSchema(BaseModel):
     status: str
+
+
+class SignUpResponseSchema(BaseResponseSchema):
+    pass
 
 
 class SignInResponseSchema(BaseResponseSchema):

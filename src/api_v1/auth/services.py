@@ -2,7 +2,7 @@ from typing import Any, TYPE_CHECKING
 
 from api_v1.auth.utils import JWTHandler
 from api_v1.auth.schemas import SignUpSchema, PayloadSchema, TokenPairSchema, \
-                                    VerificationCodeSchema
+                                    VerificationCodeSchema, SignInSchema
 from api_v1.auth.repositories.user import UserRepository
 from api_v1.exceptions import UserAlreadyExistsException
 from core.config import settings
@@ -22,6 +22,9 @@ class AuthService:
 
 
     async def register_user(self, signup_data: SignUpSchema) -> bool:
+        pass
+
+    async def login_user(self, signin_data: SignInSchema) -> bool:
         pass
 
     async def verify_code(
