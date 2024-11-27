@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status
 
 from api_v1.auth.schemas import *
 from api_v1.auth.dependencies import AuthDependency
