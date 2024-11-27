@@ -15,6 +15,7 @@ class DbSettings(BaseSettings):
     DB_USER: str
     DB_PASS: str
     DB_NAME: str
+    echo: bool = False
 
     @property
     def DB_URL(self) -> str:
