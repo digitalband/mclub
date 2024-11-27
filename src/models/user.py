@@ -4,8 +4,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 from models.base import Base
 
 class User(Base):
-    firstName: Mapped[str] = mapped_column(String(50), nullable=False)
-    lastName: Mapped[str] = mapped_column(String(50), nullable=False)
+    first_name: Mapped[str] = mapped_column(String(50), nullable=False)
+    last_name: Mapped[str] = mapped_column(String(50), nullable=False)
     email: Mapped[str] = mapped_column(String, nullable=False)
     role: Mapped[str] = mapped_column(String(8), nullable=False)
     phone: Mapped[str] = mapped_column(String(30), nullable=True)
