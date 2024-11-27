@@ -1,7 +1,7 @@
 from sqlalchemy import select
 
 from models.user import User
-from core.db import db_helper
+from core.db.db_helper import db_helper
 
 class UserRepository:
     def __init__(self) -> None:
