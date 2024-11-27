@@ -17,6 +17,10 @@ class TokenPairSchema(BaseModel):
     refresh_token: str
 
 
+class CheckEmailSchema(BaseModel):
+    email: EmailStr
+
+
 class SignUpSchema(BaseModel):
     email: EmailStr
     first_name: Annotated[str, Field(max_length=50)]
@@ -24,5 +28,18 @@ class SignUpSchema(BaseModel):
     phone: Optional[PhoneNumber] = None
 
 
-class SignUpResponseSchema(BaseModel):
-    user_id: str
+class BaseResponseSchema(BaseModel):
+    status: str
+
+
+class SignInResponseSchema(BaseResponseSchema):
+    pass
+
+
+class VerificationCodeSchema(BaseModel):
+    email: EmailStr
+    verification_code: int
+
+
+class EmailAvailabilityResponseSchema(BaseModel):
+    email_avaibility: bool

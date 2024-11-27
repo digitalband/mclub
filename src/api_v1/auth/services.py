@@ -1,7 +1,8 @@
 from typing import Any
 
 from api_v1.auth.utils import JWTHandler
-from api_v1.auth.schemas import SignUpSchema, PayloadSchema, TokenPairSchema
+from api_v1.auth.schemas import SignUpSchema, PayloadSchema, TokenPairSchema, \
+                                    VerificationCodeSchema
 from api_v1.exceptions import UserAlreadyExistsException
 from core.config import settings
 
@@ -15,18 +16,19 @@ class AuthService:
         )
         self.user_service = UserService()
 
+
     async def register_user(self, signup_data: SignUpSchema) -> bool:
-        if await self.user_service.get_user_by_email(signup_data.email):
-            raise UserAlreadyExistsException
+        pass
 
-        return ...
-    
-    # async def confirm_register_user(self, confirmation: ConfirmationSchema) -> str:
-    #     pass
+    async def verify_code(
+        self, verification_data: VerificationCodeSchema
+    ) -> TokenPairSchema:
+        pass
 
-    async def check_email_exists(self, email: str) -> bool:
+    async def check_email_availability(self, email: str) -> bool:
         user = await self.user_service.get_user_by_email(email)
         return user is None
+    
 
     def __generate_auth_token_pair(self, payload: PayloadSchema) -> TokenPairSchema:
         """
