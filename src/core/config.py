@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -34,6 +34,10 @@ class AuthJWTSettings(BaseSettings):
     refresh_token_expire_minutes: int = 3600
 
 
+class EmailSettings(BaseModel):
+    EMAIL_TEMPLATE_DIR: str = BASE_DIR / "api_v1" / "email" / "temaplates"
+
+
 class LoggingSettings(BaseSettings):
     logging_level: int = logging.INFO
 
@@ -50,6 +54,7 @@ class Settings(BaseSettings):
     db: DbSettings = Field(default_factory=DbSettings)
     auth_jwt: AuthJWTSettings = Field(default_factory=AuthJWTSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
+    email: EmailSettings
 
     model_config = SettingsConfigDict(
         env_file=ENV_FILE_PATH,
