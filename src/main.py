@@ -9,13 +9,14 @@ from api_v1.routers import router as api_v1_router
 from api_v1.exceptions import APIException
 
 settings.logging.configure_logging()
+log = logging.getLogger(__name__)
 
 app = FastAPI()
 
 
 @app.exception_handler(APIException)
 async def http_exception_handler(request: Request, exc: HTTPException):
-    logging.info(f"API Exception > {exc.detail}")
+    log.info("API Exception > %s", exc.detail)
     return JSONResponse(
         status_code=exc.status_code,
         content={"detail": exc.detail},

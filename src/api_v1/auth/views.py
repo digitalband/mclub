@@ -40,7 +40,7 @@ async def check_email(
     except APIException as api_exception:
         raise api_exception
     except Exception as e:
-        logging.error(f"Failed check email > {e}")
+        log.error("Failed check email > %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed check email"
@@ -81,7 +81,7 @@ async def signup(
     except APIException as api_exception:
         raise api_exception
     except Exception as e:
-        logging.error(f"Failed signup > {e}")
+        log.error("Failed signup > %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed signup"
@@ -102,7 +102,7 @@ async def signin(
     """
     Endpoint for login user.
     
-    This endpoint allows new users to provide the necessary login information. 
+    This endpoint allows users to provide the necessary login information. 
     If the data is correct, a confirmation code is sent to the specified email 
     address to confirm registration.
     
@@ -120,7 +120,7 @@ async def signin(
     except APIException as api_exception:
         raise api_exception
     except Exception as e:
-        logging.error(f"Failed signin > {e}")
+        log.error("Failed signin > %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed signin"
@@ -156,7 +156,7 @@ async def verify_code(
     except APIException as api_exception:
         raise api_exception
     except Exception as e:
-        logging.error(f"Failed verification code > {e}")
+        log.error(f"Failed verification code > %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed verification code"
