@@ -21,6 +21,7 @@ phonenumbers = "^8.13.50"
 asyncpg = "^0.30.0"
 aiofiles = "^24.1.0"
 aiosmtplib = "^3.0.2"
+aioredis = "^2.0.1"
 
 
 [tool.poetry.group.dev.dependencies]
