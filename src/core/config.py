@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from typing import Optional
 
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -29,13 +30,13 @@ class DbSettings(BaseSettings):
 class RedisSettings(BaseSettings):
     REDIS_HOST: str
     REDIS_PORT: int
-    REDIS_USER: str
-    REDIS_PASS: str
+    REDIS_DB: int
+    REDIS_USER: Optional[str] = None
+    REDIS_PASS: Optional[str] = None
 
-    @property
-    def REDIS_URL(self) -> str:
-        return f"redis://{self.REDIS_USER}:{self.REDIS_PASS}@{self.REDIS_HOST}/{self.REDIS_PORT}"
-
+    model_config = SettingsConfigDict(
+        env_file=ENV_FILE_PATH, env_file_encoding="utf-8", extra="allow"
+    )
 
 class AuthJWTSettings(BaseSettings):
     private_key_path: Path = BASE_DIR / "core" / "certs" / "jwt-private.pem"
@@ -44,7 +45,7 @@ class AuthJWTSettings(BaseSettings):
     access_token_expire_minutes: int = 30
     refresh_token_expire_minutes: int = 3600
     verification_code_length: int = 6
-    verification_code_expiration_minutes: int = 5
+    verification_code_expiration_minutes: int = 5  * 60
 
 
 class EmailSettings(BaseModel):
