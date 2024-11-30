@@ -5,7 +5,7 @@ from email.mime.text import MIMEText
 import aiofiles
 from aiosmtplib import SMTP
 
-from api_v1.email.schemas import Message
+from api_v1.email.schemas import MessageSchema
 from core.config import settings
 
 
@@ -27,7 +27,7 @@ class EmailService:
         self.smtp_port = smtp_port
         self.timeout = timeout
 
-    async def send_message(self, recipient: str, message: Message) -> bool:
+    async def send_message(self, recipient: str, message: MessageSchema) -> bool:
         """
         Sends an email message to the specified recipient.
 
@@ -89,7 +89,7 @@ class EmailService:
             async with aiofiles.open(template_path, "r") as file:
                 template = await file.read()
                 for key, value in params.items():
-                    template = template.replace(f"{{{ key }}}", str(value))
+                    template = template.replace(f"{{{key}}}", str(value))
         except FileNotFoundError:
             log.error("Template not found: %s", template_name)
         except Exception as e:
