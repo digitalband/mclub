@@ -47,10 +47,16 @@ class AuthJWTSettings(BaseSettings):
     verification_code_length: int = 6
     verification_code_expiration_minutes: int = 5  * 60
 
+class EmailSettings(BaseSettings):
+    SMTP_HOST: str
+    SMTP_PORT: int
+    SMTP_USER: str
+    SMTP_PASS: str
+    EMAIL_TEMPLATE_DIR: Path = BASE_DIR / "api_v1" / "email" / "templates"
 
-class EmailSettings(BaseModel):
-    EMAIL_TEMPLATE_DIR: str = BASE_DIR / "api_v1" / "email" / "temaplates"
-
+    model_config = SettingsConfigDict(
+        env_file=ENV_FILE_PATH, env_file_encoding="utf-8", extra="allow"
+    )
 
 class LoggingSettings(BaseSettings):
     logging_level: int = logging.INFO
@@ -67,13 +73,14 @@ class Settings(BaseSettings):
     MODE: str
     db: DbSettings = DbSettings()
     redis: RedisSettings = RedisSettings()
+    email: EmailSettings = EmailSettings()
     auth_jwt: AuthJWTSettings = AuthJWTSettings()
     logging: LoggingSettings = LoggingSettings()
-    email: EmailSettings = EmailSettings()
 
     model_config = SettingsConfigDict(
         env_file=ENV_FILE_PATH,
-        env_file_encoding="utf-8"
+        env_file_encoding="utf-8",
+        extra="allow"
     )
 
 
