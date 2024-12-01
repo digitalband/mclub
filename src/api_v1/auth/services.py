@@ -6,7 +6,7 @@ from api_v1.auth.utils import JWTHandler
 from api_v1.auth.schemas import SignUpSchema, PayloadSchema, TokenPairSchema, \
                                     VerificationCodeSchema, SignInSchema
 from api_v1.auth.repositories.user import UserRepository
-from api_v1.exceptions import EmailAlreadyExistsException, ExceedingNumberOfRequestsException
+from api_v1.exceptions import EmailAlreadyExistsException, EmailNotFoundException
 from api_v1.email.services import EmailService
 from api_v1.email.schemas import MessageSchema, MessageType
 from core.config import settings
@@ -51,9 +51,6 @@ class AuthService:
         """
         if not await self.check_email_availability(signup_data.email):
             raise EmailAlreadyExistsException
-
-        if await redis_helper.get_verification_code(signup_data.email):
-            raise ExceedingNumberOfRequestsException
         
         verification_code = await self.__create_verification_code(
             email=signup_data.email,
@@ -65,6 +62,36 @@ class AuthService:
         
         email_status = await self.__send_verification_code(
             email=signup_data.email,
+            verification_code=verification_code,
+        )
+        if not email_status:
+            raise ValueError("Email don't send")
+
+        return True
+    
+    async def login_user(self, signin_data: SignInSchema) -> bool:
+        """
+        Generating a verification code, and sending it to the user's email.
+
+        Args:
+            signin_data (SignInSchema): The data required for user auth
+
+        Returns:
+            bool: True if the registration process is successful and 
+            the verification code is sent; otherwise, an exception is raised.
+        """
+        if await self.check_email_availability(signin_data.email):
+            raise EmailNotFoundException
+
+        verification_code = await self.__create_verification_code(
+            email=signin_data.email
+        )
+
+        if not verification_code:
+            raise ValueError("Verification code not created")
+        
+        email_status = await self.__send_verification_code(
+            email=signin_data.email,
             verification_code=verification_code,
         )
         if not email_status:
@@ -133,9 +160,6 @@ class AuthService:
         )
 
         return email_status
-
-    async def login_user(self, signin_data: SignInSchema) -> bool:
-        pass
 
     async def verify_code(
         self, verification_data: VerificationCodeSchema

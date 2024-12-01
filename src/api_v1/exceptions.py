@@ -17,3 +17,8 @@ class EmailAlreadyExistsException(APIException):
 class ExceedingNumberOfRequestsException(APIException):
     status_code = status.HTTP_429_TOO_MANY_REQUESTS
     detail = "Exceeded number of requests"
+
+
+class EmailNotFoundException(APIException):
+    status_code = status.HTTP_404_NOT_FOUND
+    detail = "Email not found"
