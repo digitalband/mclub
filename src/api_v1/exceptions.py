@@ -9,6 +9,11 @@ class APIException(Exception):
         return f"{self.detail}"
 
 
-class UserAlreadyExistsException(APIException):
+class EmailAlreadyExistsException(APIException):
     status_code = status.HTTP_400_BAD_REQUEST
-    detail="User already exists."
+    detail = "Email already exists."
+
+
+class ExceedingNumberOfRequestsException(APIException):
+    status_code = status.HTTP_429_TOO_MANY_REQUESTS
+    detail = "Exceeded number of requests"

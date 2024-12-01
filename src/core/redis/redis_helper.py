@@ -24,6 +24,16 @@ class RedisHelper:
         
         return False
 
+    async def get_verification_code(self, email: str) -> str | None:
+        try:
+            key = f"verification_code:{email}"
+            return await self.redis.get(key)
+        except Exception as e:
+            log.error(
+                "Failed get_verification_code from Redis email > %s, error_message > %s",
+                email, e
+            )
+
 
 redis_helper = RedisHelper(
     host=settings.redis.REDIS_HOST, 

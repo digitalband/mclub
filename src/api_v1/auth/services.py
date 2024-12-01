@@ -1,28 +1,138 @@
-from typing import Any, TYPE_CHECKING
+import secrets
+import logging
+from typing import Any, Optional
 
 from api_v1.auth.utils import JWTHandler
 from api_v1.auth.schemas import SignUpSchema, PayloadSchema, TokenPairSchema, \
                                     VerificationCodeSchema, SignInSchema
 from api_v1.auth.repositories.user import UserRepository
-from api_v1.exceptions import UserAlreadyExistsException
+from api_v1.exceptions import EmailAlreadyExistsException, ExceedingNumberOfRequestsException
+from api_v1.email.services import EmailService
+from api_v1.email.schemas import MessageSchema, MessageType
 from core.config import settings
+from core.redis.redis_helper import redis_helper
 
-if TYPE_CHECKING:
-    from models.user import User
+log = logging.getLogger(__name__)
 
 
 class AuthService:
-    def __init__(self, private_key: str, public_key: str, algorithm: str) -> None:
+    def __init__(
+        self, 
+        private_key: str,
+        public_key: str,
+        algorithm: str,
+        verification_code_length: int
+    ) -> None:
         self.jwt_handler = JWTHandler(
             private_key=private_key,
             public_key=public_key,
             algorithm=algorithm,
         )
+        self.email_service = EmailService(
+            smtp_host=settings.email.SMTP_HOST,
+            smtp_port=settings.email.SMTP_PORT,
+            smtp_user=settings.email.SMTP_USER,
+            smtp_password=settings.email.SMTP_PASS
+        )
+        self.verification_code_length = verification_code_length
         self.user_repo = UserRepository()
 
 
     async def register_user(self, signup_data: SignUpSchema) -> bool:
-        pass
+        """
+        Generating a verification code, and sending it to the user's email.
+
+        Args:
+            signup_data (SignUpSchema): The data required for user registration
+
+        Returns:
+            bool: True if the registration process is successful and 
+            the verification code is sent; otherwise, an exception is raised.
+        """
+        if not await self.check_email_availability(signup_data.email):
+            raise EmailAlreadyExistsException
+
+        if await redis_helper.get_verification_code(signup_data.email):
+            raise ExceedingNumberOfRequestsException
+        
+        verification_code = await self.__create_verification_code(
+            email=signup_data.email,
+            signup_data=signup_data
+        )
+
+        if not verification_code:
+            raise ValueError("Verification code not created")
+        
+        email_status = await self.__send_verification_code(
+            email=signup_data.email,
+            verification_code=verification_code,
+        )
+        if not email_status:
+            raise ValueError("Email don't send")
+
+        return True
+
+    async def __create_verification_code(
+        self, email: str, *, signup_data: Optional[SignUpSchema] = None
+    ) -> str | None:
+        """
+        Generates a verification code for the given email and stores it in Redis
+        
+        Args:
+            email (str): The email address to which the verification code will be sent.
+            signup_data (Optional[SignUpSchema]): An optional schema containing 
+            additional signup information. If provided, this data will be included 
+            in the stored value alongside the verification code.
+            
+        Returns:
+            str | None: Returns the generated verification code as a string if the 
+            вcode was successfully added to Redis; otherwise, returns None.
+        """
+        verification_code = ''.join(
+            secrets.choice("0123456789")
+            for _ in range(self.verification_code_length)
+        )
+
+        value = {
+            "verification_code": verification_code,
+        }
+
+        if signup_data:
+            value["signup_data"] = signup_data.model_dump()
+        
+        add_code_in_redis_status = await redis_helper.add_verification_code(
+                email=email,
+                value=str(value),
+                expiration=settings.auth_jwt.verification_code_expiration_minutes,
+            )
+
+        if not add_code_in_redis_status:
+            return None
+        
+        return verification_code
+
+    async def __send_verification_code(self, email: str, verification_code: str) -> bool:
+        """
+        Sends a confirmation code to the specified email
+       
+        Args:
+            email (str): The recipient's email address.
+            verification_code (str): confirmation code that will be sent by email
+        
+        Returns:
+            bool: True if the message was send successfully / False if the message is not delivery
+        """
+        message = MessageSchema(
+            message_type=MessageType.verification_code,
+            message=verification_code
+        )
+
+        email_status = await self.email_service.send_message(
+            recipient=email,
+            message=message
+        )
+
+        return email_status
 
     async def login_user(self, signin_data: SignInSchema) -> bool:
         pass
@@ -35,7 +145,7 @@ class AuthService:
     async def check_email_availability(self, email: str) -> bool:
         """
         Args:
-            email (str): email fot checking
+            email (str): email for checking
 
         Returns:
             bool: True if email available / False is email is busy
