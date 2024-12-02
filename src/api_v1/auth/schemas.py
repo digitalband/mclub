@@ -1,14 +1,14 @@
 from typing import Annotated, Optional
 
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, StringConstraints, EmailStr
 
 from pydantic_extra_types.phone_numbers import PhoneNumber
 
 
 class PayloadSchema(BaseModel):
     sub: str
-    role: Annotated[str, Field(max_length=8)]
-    session_id: str
+    jid: str
+    role: Annotated[list[str], StringConstraints(max_length=8)]
     is_refresh: bool = False
 
 
