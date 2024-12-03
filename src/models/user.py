@@ -7,6 +7,7 @@ from models.base import Base
 
 if TYPE_CHECKING:
     from models.roles import Role
+    from models.session import Session
 
 
 class User(Base):
@@ -22,3 +23,4 @@ class User(Base):
         server_default=func.now()
     )
     role: Mapped[list["Role"]] = relationship(back_populates="user")
+    sessions: Mapped[list["Session"]] = relationship(back_populates="user")
