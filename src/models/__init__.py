@@ -7,5 +7,5 @@ __all__ = [
 
 from models.base import Base
 from models.user import User
-from models.roles import Role
+from models.role import Role
 from models.session import Session
