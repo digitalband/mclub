@@ -1,12 +1,16 @@
+import json
 import secrets
 import logging
 from typing import Any, Optional
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from api_v1.auth.utils import JWTHandler
 from api_v1.auth.schemas import SignUpSchema, PayloadSchema, TokenPairSchema, \
-                                    VerificationCodeSchema, SignInSchema
+                                        VerificationCodeSchema, SignInSchema
 from api_v1.auth.repositories.user import UserRepository
-from api_v1.exceptions import EmailAlreadyExistsException, EmailNotFoundException
+from api_v1.exceptions import EmailAlreadyExistsException, EmailNotFoundException, \
+                    VerificationCodeIncorrectException, UserNotCreatedException
 from api_v1.email.services import EmailService
 from api_v1.email.schemas import MessageSchema, MessageType
 from core.config import settings
@@ -21,7 +25,8 @@ class AuthService:
         private_key: str,
         public_key: str,
         algorithm: str,
-        verification_code_length: int
+        verification_code_length: int,
+        session: AsyncSession
     ) -> None:
         self.jwt_handler = JWTHandler(
             private_key=private_key,
@@ -35,10 +40,10 @@ class AuthService:
             smtp_password=settings.email.SMTP_PASS
         )
         self.verification_code_length = verification_code_length
-        self.user_repo = UserRepository()
+        self.user_repo = UserRepository(session=session)
 
 
-    async def register_user(self, signup_data: SignUpSchema) -> bool:
+    async def signup(self, signup_data: SignUpSchema) -> bool:
         """
         Generating a verification code, and sending it to the user's email.
 
@@ -69,7 +74,7 @@ class AuthService:
 
         return True
     
-    async def login_user(self, signin_data: SignInSchema) -> bool:
+    async def signin(self, signin_data: SignInSchema) -> bool:
         """
         Generating a verification code, and sending it to the user's email.
 
@@ -129,7 +134,7 @@ class AuthService:
         
         add_code_in_redis_status = await redis_helper.add_verification_code(
                 email=email,
-                value=str(value),
+                value=json.dumps(value),
                 expiration=settings.auth_jwt.verification_code_expiration_minutes,
             )
 
@@ -164,6 +169,39 @@ class AuthService:
     async def verify_code(
         self, verification_data: VerificationCodeSchema
     ) -> TokenPairSchema:
+        """
+        Verifying the confirmation code.
+        
+        Args:
+            verification_data (VerificationCodeSchema): email and verification_code
+
+        Returns:
+            TokenPairSchema: An object containing the generated
+                             access and refresh tokens.
+        """
+        data = await redis_helper.get_verification_code(email=verification_data.email)
+        
+        if not data:
+            raise VerificationCodeIncorrectException
+        
+        data = json.loads(data)
+
+        if data["verification_code"] != verification_data.verification_code:
+            raise VerificationCodeIncorrectException
+        
+        if signup_data := data.get("signup_data", None):
+            user_created = await self.create_user(signup_data)
+            if not user_created:
+                raise UserNotCreatedException
+    
+        payload = await self.get_user_payload(verification_data.email)
+        
+        return self.__generate_auth_token_pair(payload) # TODO: add async
+
+    async def create_user(self, signup_data: SignUpSchema) -> bool:
+        pass
+
+    async def get_user_payload(self, email: str) -> PayloadSchema:
         pass
 
     async def check_email_availability(self, email: str) -> bool:

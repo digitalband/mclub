@@ -1,4 +1,8 @@
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+from typing import AsyncIterator
+
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+
 from core.config import settings
 
 
@@ -11,6 +15,15 @@ class DatabaseHelper:
             autocommit=False,
             expire_on_commit=False
         )
+
+    async def get_session_dependency(self) -> AsyncIterator[AsyncSession]:
+        async with self.session_factory() as session:
+            try:
+                yield session
+            except SQLAlchemyError:
+                await session.rollback()
+            finally:
+                await session.close()
 
 
 db_helper = DatabaseHelper(

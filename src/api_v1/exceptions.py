@@ -22,3 +22,13 @@ class ExceedingNumberOfRequestsException(APIException):
 class EmailNotFoundException(APIException):
     status_code = status.HTTP_404_NOT_FOUND
     detail = "Email not found"
+
+
+class VerificationCodeIncorrectException(APIException):
+    status_code = status.HTTP_400_BAD_REQUEST
+    detail = "Invalid confirmation code"
+
+
+class UserNotCreatedException(APIException):
+    status = status.HTTP_406_NOT_ACCEPTABLE
+    detail = "User not created"

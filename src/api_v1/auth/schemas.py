@@ -46,7 +46,7 @@ class SignInResponseSchema(BaseResponseSchema):
 
 class VerificationCodeSchema(BaseModel):
     email: EmailStr
-    verification_code: int
+    verification_code: str
 
 
 class EmailAvailabilityResponseSchema(BaseModel):

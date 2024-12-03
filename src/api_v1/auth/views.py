@@ -76,7 +76,7 @@ async def signup(
                               to the email.
     """
     try:
-        await auth_service.register_user(signup_data)
+        await auth_service.signup(signup_data)
         return SignInResponseSchema(status="OK")
     except APIException as api_exception:
         raise api_exception
@@ -115,7 +115,7 @@ async def signin(
                               to the email.
     """
     try:
-        await auth_service.login_user(signin_data)
+        await auth_service.signin(signin_data)
         return SignInResponseSchema(status="OK")
     except APIException as api_exception:
         raise api_exception
