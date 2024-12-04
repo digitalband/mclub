@@ -5,14 +5,14 @@ import logging
 from typing import Any, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from jwt.exceptions import InvalidTokenError, ExpiredSignatureError
 
 from api_v1.auth.utils import JWTHandler
 from api_v1.auth.schemas import SignUpSchema, PayloadSchema, TokenPairSchema, \
                                         VerificationCodeSchema, SignInSchema
 from api_v1.auth.repositories.user import UserRepository
 from api_v1.auth.repositories.session import SessionRepository
-from api_v1.exceptions import EmailAlreadyExistsException, EmailNotFoundException, \
-                    VerificationCodeIncorrectException, UserNotCreatedException
+from api_v1.exceptions import *
 from api_v1.email.services import EmailService
 from api_v1.email.schemas import MessageSchema, MessageType
 from core.config import settings
@@ -233,6 +233,9 @@ class AuthService:
         
         if user is None:
             raise EmailNotFoundException
+        
+        if not user.is_active:
+            raise EmailNotFoundException
 
         payload = PayloadSchema(
             sub=str(user.id),
@@ -250,6 +253,51 @@ class AuthService:
         )
 
         return token_pair
+
+    async def validate_token(self, token: str, is_refresh: bool = False) -> PayloadSchema:
+        """
+        Validates the provided jwt token.
+
+        This method checks the token's payload, verifies if it is a refresh token 
+        (if applicable), and checks if the token is in a blacklist.
+
+        Args:
+            token (str): The jwt token to be validated.
+            is_refresh (bool): A flag indicating whether the token is expected 
+                               to be a refresh token. Defaults to False.
+
+        Returns:
+            PayloadSchema: The payload extracted from the token if validation 
+                           is successful.
+        """
+        payload = self.get_payload_from_token(token) # TODO: add async
+
+        if payload.is_refresh != is_refresh:
+            raise InvalidTokenException
+
+        if await redis_helper.token_in_black_list(payload.jid):
+            raise InvalidTokenException
+
+        return payload
+
+    def get_payload_from_token(self, token: str) -> PayloadSchema:
+        """
+        Decodes the provided JWT and extracts the payload.
+
+        Args:
+            token (str): The JWT to be decoded.
+
+        Returns:
+            PayloadSchema: The payload extracted from the token.
+        """
+        try:
+            payload_dict = self.jwt_handler.decode(token=token) # TODO: add async
+            payload = PayloadSchema(**payload_dict)
+            return payload
+        except ExpiredSignatureError:
+            raise TokenExpiredException
+        except InvalidTokenError:
+            raise InvalidTokenException
 
     async def check_email_availability(self, email: str) -> bool:
         """

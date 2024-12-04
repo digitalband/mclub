@@ -44,6 +44,16 @@ class RedisHelper:
                 email, e
             )
 
+    async def token_in_black_list(self, session_id: str) -> bool:
+        try:
+            key = f"jid_black_list:{session_id}"
+            return bool(await self.redis.get(key))
+        except Exception as e:
+            log.error(
+                "Failed token_in_black_list from Redis session_id > %s, error_message > %s",
+                session_id, e
+            )
+
 redis_helper = RedisHelper(
     host=settings.redis.REDIS_HOST, 
     port=settings.redis.REDIS_PORT,

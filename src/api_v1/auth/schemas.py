@@ -17,6 +17,10 @@ class TokenPairSchema(BaseModel):
     refresh_token: str
 
 
+class AccessTokenSchema(BaseModel):
+    access_token: str
+
+
 class CheckEmailSchema(BaseModel):
     email: EmailStr
 

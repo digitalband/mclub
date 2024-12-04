@@ -156,8 +156,41 @@ async def verify_code(
     except APIException as api_exception:
         raise api_exception
     except Exception as e:
-        log.error(f"Failed verification code > %s", e)
+        log.error("Failed verification code > %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed verification code"
+        )
+
+
+@router.post(
+    path="/validate",
+    response_model=PayloadSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Validate access token",
+    response_description="Payload from token"
+)
+async def validate_token(
+    token: AccessTokenSchema,
+    auth_service: AuthDependency
+) -> PayloadSchema:
+    """
+    Endpoint to validate access token
+
+    Args:
+        token (AccessTokenSchema): access token
+
+    Returns:
+        PayloadSchema: Returns a JSON response with token payload
+    """
+    try:
+        payload = await auth_service.validate_token(token.access_token)
+        return payload
+    except APIException as api_exception:
+        raise api_exception
+    except Exception as e:
+        log.error("Failed validate token > %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed validation token"
         )
