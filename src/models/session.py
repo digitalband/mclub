@@ -8,6 +8,7 @@ from models.mixins.user_relation import UserRelationMixin
 class Session(Base, UserRelationMixin):
     _user_back_populates = "sessions"
 
+    id: Mapped[str] = mapped_column(String, primary_key=True)
     refresh_token: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[DateTime] = mapped_column(
         TIMESTAMP(timezone=True),

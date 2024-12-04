@@ -45,7 +45,7 @@ class AuthJWTSettings(BaseSettings):
     access_token_expire_minutes: int = 30
     refresh_token_expire_minutes: int = 3600
     verification_code_length: int = 6
-    verification_code_expiration_minutes: int = 5  * 60
+    verification_code_expiration_minutes: int = 10  * 60
 
 class EmailSettings(BaseSettings):
     SMTP_HOST: str
