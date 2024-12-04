@@ -34,6 +34,15 @@ class RedisHelper:
                 email, e
             )
 
+    async def delete_verification_code(self, email: str) -> bool:
+        try:
+            key = f"verification_code:{email}"
+            return bool(await self.redis.delete(key))
+        except Exception as e:
+            log.error(
+                "Failed delete_verification_code from Redis email > %s, error_message > %s",
+                email, e
+            )
 
 redis_helper = RedisHelper(
     host=settings.redis.REDIS_HOST, 

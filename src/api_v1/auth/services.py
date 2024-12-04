@@ -1,3 +1,4 @@
+import uuid
 import json
 import secrets
 import logging
@@ -9,6 +10,7 @@ from api_v1.auth.utils import JWTHandler
 from api_v1.auth.schemas import SignUpSchema, PayloadSchema, TokenPairSchema, \
                                         VerificationCodeSchema, SignInSchema
 from api_v1.auth.repositories.user import UserRepository
+from api_v1.auth.repositories.session import SessionRepository
 from api_v1.exceptions import EmailAlreadyExistsException, EmailNotFoundException, \
                     VerificationCodeIncorrectException, UserNotCreatedException
 from api_v1.email.services import EmailService
@@ -41,7 +43,7 @@ class AuthService:
         )
         self.verification_code_length = verification_code_length
         self.user_repo = UserRepository(session=session)
-
+        self.session_repo = SessionRepository(session=session)
 
     async def signup(self, signup_data: SignUpSchema) -> bool:
         """
@@ -118,7 +120,7 @@ class AuthService:
             
         Returns:
             str | None: Returns the generated verification code as a string if the 
-            вcode was successfully added to Redis; otherwise, returns None.
+            code was successfully added to Redis; otherwise, returns None.
         """
         verification_code = ''.join(
             secrets.choice("0123456789")
@@ -181,7 +183,7 @@ class AuthService:
         """
         data = await redis_helper.get_verification_code(email=verification_data.email)
         
-        if not data:
+        if data is None:
             raise VerificationCodeIncorrectException
         
         data = json.loads(data)
@@ -190,19 +192,64 @@ class AuthService:
             raise VerificationCodeIncorrectException
         
         if signup_data := data.get("signup_data", None):
-            user_created = await self.create_user(signup_data)
-            if not user_created:
+            signup_schema = SignUpSchema(**signup_data) 
+            user_created = await self.create_user(signup_schema)
+            if user_created is None:
                 raise UserNotCreatedException
     
-        payload = await self.get_user_payload(verification_data.email)
+        token_pair = await self.__open_auth_session(verification_data.email)
+
+        await redis_helper.delete_verification_code(email=verification_data.email)
+
+        return token_pair
+
+    async def create_user(
+        self, signup_data: SignUpSchema, role: str = "User"
+    ) -> bool:
+        """
+        Args:
+            signup_data (SignUpSchema): The data required for created user
+            role (str): role for created user
+
+        Returns:
+            bool: True if user created succcess, False if user don't created
+        """
+        user_created = await self.user_repo.create_user(signup_data, role=role)        
+        return user_created is not None
+    
+    async def __open_auth_session(self, email: str) -> TokenPairSchema:
+        """
+        Created new session for user
+
+        Args:
+            email (str): user email for created session        
         
-        return self.__generate_auth_token_pair(payload) # TODO: add async
+        Returns:
+            TokenPairSchema: An object containing the generated
+                             access and refresh tokens.
+        """
+        session_id = str(uuid.uuid4())
+        user = await self.user_repo.get_user_by_email(email)
+        
+        if user is None:
+            raise EmailNotFoundException
 
-    async def create_user(self, signup_data: SignUpSchema) -> bool:
-        pass
+        payload = PayloadSchema(
+            sub=str(user.id),
+            jid=session_id,
+            role=user.role,
+        )
 
-    async def get_user_payload(self, email: str) -> PayloadSchema:
-        pass
+        token_pair = self.__generate_auth_token_pair(payload) # TODO: add async
+
+        await self.session_repo.create_session(
+            user_id=user.id,
+            session_id=session_id,
+            refresh_token=token_pair.refresh_token,
+            expires_at=settings.auth_jwt.refresh_token_expire_minutes
+        )
+
+        return token_pair
 
     async def check_email_availability(self, email: str) -> bool:
         """
