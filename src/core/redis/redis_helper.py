@@ -44,7 +44,7 @@ class RedisHelper:
                 email, e
             )
 
-    async def token_in_black_list(self, session_id: str) -> bool:
+    async def session_in_black_list(self, session_id: str) -> bool:
         try:
             key = f"jid_black_list:{session_id}"
             return bool(await self.redis.get(key))

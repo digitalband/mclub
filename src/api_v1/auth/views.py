@@ -194,3 +194,36 @@ async def validate_token(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed validation token"
         )
+
+
+@router.post(
+    path="/refresh",
+    response_model=TokenPairSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Token pair update",
+    response_description="Return updated access and refresh tokens"
+)
+async def refresh_token(
+    token: RefreshTokenSchema,
+    auth_service: AuthDependency
+) -> TokenPairSchema:
+    """
+    Endpoint to refresh token pair
+
+    Args:
+        token (RefreshTokenSchema): refresh token
+
+    Returns:
+        PayloadSchema: Returns a JSON response with access and refresh tokens
+    """
+    try:
+        token_pair = await auth_service.refresh_token(token.refresh_token)
+        return token_pair
+    except APIException as api_exception:
+        raise api_exception
+    except Exception as e:
+        log.error("Failed refresh token > %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed refresh token"
+        )

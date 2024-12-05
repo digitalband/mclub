@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,20 +14,13 @@ class SessionRepository:
         self.session = session
 
     async def create_session(
-        self, user_id: int, session_id: str, refresh_token: str, expires_at: int | timedelta
+        self, user_id: int, session_id: str, refresh_token: str, expires_at: datetime
     ) -> str | None:
-        now = datetime.now(timezone.utc)
-
-        if isinstance(expires_at, int):
-            expire = now + timedelta(minutes=expires_at)
-        elif isinstance(expires_at, timedelta):
-            expire = now + expires_at
-
         auth_session = Session(
             user_id=user_id,
             id=session_id,
             refresh_token=refresh_token,
-            expires_at=expire
+            expires_at=expires_at
         )
         try:
             self.session.add(auth_session)
@@ -35,3 +28,22 @@ class SessionRepository:
             return auth_session.id
         except Exception as e:
             log.error("DB Failed create session > %s", e)
+
+    async def update_session(
+        self, session: Session, refresh_token: str, expires_at: datetime
+    ) -> str | None:
+        try:
+            session.refresh_token = refresh_token
+            session.expires_at = expires_at
+            await self.session.commit()
+            return session.id
+        except Exception as e:
+            log.error("DB Failed update session > %s", e)
+        
+    async def get_session_by_id(self, session_id) -> Session | None:
+        return await self.__get_session(id=session_id)
+    
+    async def __get_session(self, **filter) -> Session | None:
+        query = select(Session).filter_by(**filter).limit(1)
+        user = await self.session.execute(query)
+        return user.scalar_one_or_none()

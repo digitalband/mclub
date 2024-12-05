@@ -2,7 +2,8 @@ import uuid
 import json
 import secrets
 import logging
-from typing import Any, Optional
+from datetime import datetime, timezone, timedelta
+from typing import Any, Optional, TYPE_CHECKING
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from jwt.exceptions import InvalidTokenError, ExpiredSignatureError
@@ -17,6 +18,9 @@ from api_v1.email.services import EmailService
 from api_v1.email.schemas import MessageSchema, MessageType
 from core.config import settings
 from core.redis.redis_helper import redis_helper
+
+if TYPE_CHECKING:
+    from models.user import User
 
 log = logging.getLogger(__name__)
 
@@ -41,9 +45,20 @@ class AuthService:
             smtp_user=settings.email.SMTP_USER,
             smtp_password=settings.email.SMTP_PASS
         )
-        self.verification_code_length = verification_code_length
-        self.user_repo = UserRepository(session=session)
+        self.user_service = UserService(session=session)
         self.session_repo = SessionRepository(session=session)
+        self.verification_code_length = verification_code_length
+
+    async def check_email_availability(self, email: str) -> bool:
+        """
+        Args:
+            email (str): email for checking
+
+        Returns:
+            bool: True if email available / False is email is busy
+        """
+        user = await self.user_service.get_user_by_email(email)
+        return user is None
 
     async def signup(self, signup_data: SignUpSchema) -> bool:
         """
@@ -168,9 +183,7 @@ class AuthService:
 
         return email_status
 
-    async def verify_code(
-        self, verification_data: VerificationCodeSchema
-    ) -> TokenPairSchema:
+    async def verify_code(self, verification_data: VerificationCodeSchema) -> TokenPairSchema:
         """
         Verifying the confirmation code.
         
@@ -193,7 +206,7 @@ class AuthService:
         
         if signup_data := data.get("signup_data", None):
             signup_schema = SignUpSchema(**signup_data) 
-            user_created = await self.create_user(signup_schema)
+            user_created = await self.user_service.create_user(signup_schema)
             if user_created is None:
                 raise UserNotCreatedException
     
@@ -202,20 +215,6 @@ class AuthService:
         await redis_helper.delete_verification_code(email=verification_data.email)
 
         return token_pair
-
-    async def create_user(
-        self, signup_data: SignUpSchema, role: str = "User"
-    ) -> bool:
-        """
-        Args:
-            signup_data (SignUpSchema): The data required for created user
-            role (str): role for created user
-
-        Returns:
-            bool: True if user created succcess, False if user don't created
-        """
-        user_created = await self.user_repo.create_user(signup_data, role=role)        
-        return user_created is not None
     
     async def __open_auth_session(self, email: str) -> TokenPairSchema:
         """
@@ -229,7 +228,7 @@ class AuthService:
                              access and refresh tokens.
         """
         session_id = str(uuid.uuid4())
-        user = await self.user_repo.get_user_by_email(email)
+        user = await self.user_service.get_user_by_email(email)
         
         if user is None:
             raise EmailNotFoundException
@@ -249,7 +248,83 @@ class AuthService:
             user_id=user.id,
             session_id=session_id,
             refresh_token=token_pair.refresh_token,
-            expires_at=settings.auth_jwt.refresh_token_expire_minutes
+            expires_at=datetime.now(timezone.utc)+timedelta(minutes=settings.auth_jwt.refresh_token_expire_minutes)
+        )
+
+        return token_pair
+
+    def __generate_auth_token_pair(self, payload: PayloadSchema) -> TokenPairSchema:
+        """
+        Generates a pair of tokens (access and refresh)
+
+        Args:
+            payload (PayloadSchema): An object containing the data for
+                                     token generation.
+
+        Returns:
+            TokenPairSchema: An object containing the generated
+                             access and refresh tokens.
+        """
+        payload_data = payload.model_dump()
+
+        access_token = self.__generate_auth_token(payload_data, is_refresh=False)
+        refresh_token = self.__generate_auth_token(payload_data, is_refresh=True)
+
+        return TokenPairSchema(access_token=access_token, refresh_token=refresh_token)
+
+    def __generate_auth_token(self, payload_data: dict[str, Any], is_refresh: bool) -> str:
+        """
+        Generates a JWT token based on the provided payload data.
+
+        Args:
+            payload_data (dict[str, Any]): A dictionary containing the data
+                                           to be encoded in the token.
+            is_refresh (bool): A flag indicating whether the token being
+                               generated is a refresh token.
+
+        Returns:
+            str: The encoded JWT token as a string.
+        """
+        payload_data["is_refresh"] = is_refresh
+
+        if is_refresh:
+            expire_minutes = settings.auth_jwt.refresh_token_expire_minutes
+        else:
+            expire_minutes = settings.auth_jwt.access_token_expire_minutes
+
+        return self.jwt_handler.encode(
+            payload=payload_data, expire_token=expire_minutes
+        )
+
+    async def refresh_token(self, refresh_token: str) -> TokenPairSchema:
+        """
+        Generate new token pair (access and refresh) tokens
+
+        Returns:
+            TokenPairSchema: An object containing the generated
+                             access and refresh tokens.
+        """
+        payload = await self.validate_token(refresh_token, is_refresh=True)
+        user = await self.user_service.get_user_by_id(int(payload.sub))
+        
+        if not user.is_active:
+            raise InvalidTokenException
+
+        session = await self.session_repo.get_session_by_id(payload.jid)
+
+        if session is None:
+            raise InvalidTokenException
+        
+        if refresh_token != session.refresh_token:
+            raise InvalidTokenException
+
+        payload.role = user.role
+        token_pair = self.__generate_auth_token_pair(payload)
+
+        await self.session_repo.update_session(
+            session=session,
+            refresh_token=token_pair.refresh_token,
+            expires_at=datetime.now(timezone.utc)+timedelta(minutes=settings.auth_jwt.refresh_token_expire_minutes)
         )
 
         return token_pair
@@ -275,7 +350,7 @@ class AuthService:
         if payload.is_refresh != is_refresh:
             raise InvalidTokenException
 
-        if await redis_helper.token_in_black_list(payload.jid):
+        if await redis_helper.session_in_black_list(payload.jid):
             raise InvalidTokenException
 
         return payload
@@ -299,58 +374,27 @@ class AuthService:
         except InvalidTokenError:
             raise InvalidTokenException
 
-    async def check_email_availability(self, email: str) -> bool:
+
+class UserService:
+    def __init__(self, session: AsyncSession) -> None:
+        self.user_repo = UserRepository(session=session)
+   
+    async def create_user(
+        self, signup_data: SignUpSchema, role: str = "User"
+    ) -> bool:
         """
         Args:
-            email (str): email for checking
+            signup_data (SignUpSchema): The data required for created user
+            role (str): role for created user
 
         Returns:
-            bool: True if email available / False is email is busy
+            bool: True if user created succcess, False if user don't created
         """
-        user = await self.user_repo.get_user_by_email(email)
-        return user is None
+        user_created = await self.user_repo.create_user(signup_data, role=role)        
+        return user_created is not None
+
+    async def get_user_by_email(self, email: str) -> Optional["User"]:
+        return await self.user_repo.get_user_by_email(email)
     
-    def __generate_auth_token_pair(self, payload: PayloadSchema) -> TokenPairSchema:
-        """
-        Generates a pair of tokens (access and refresh)
-
-        Args:
-            payload (PayloadSchema): An object containing the data for
-                                     token generation.
-
-        Returns:
-            TokenPairSchema: An object containing the generated
-                             access and refresh tokens.
-        """
-        payload_data = payload.model_dump()
-
-        access_token = self.__generate_auth_token(payload_data, is_refresh=False)
-        refresh_token = self.__generate_auth_token(payload_data, is_refresh=True)
-
-        return TokenPairSchema(access_token=access_token, refresh_token=refresh_token)
-
-    def __generate_auth_token(
-        self, payload_data: dict[str, Any], is_refresh: bool
-    ) -> str:
-        """
-        Generates a JWT token based on the provided payload data.
-
-        Args:
-            payload_data (dict[str, Any]): A dictionary containing the data
-                                           to be encoded in the token.
-            is_refresh (bool): A flag indicating whether the token being
-                               generated is a refresh token.
-
-        Returns:
-            str: The encoded JWT token as a string.
-        """
-        payload_data["is_refresh"] = is_refresh
-
-        if is_refresh:
-            expire_minutes = settings.auth_jwt.refresh_token_expire_minutes
-        else:
-            expire_minutes = settings.auth_jwt.access_token_expire_minutes
-
-        return self.jwt_handler.encode(
-            payload=payload_data, expire_token=expire_minutes
-        )
+    async def get_user_by_id(self, id: int) -> Optional["User"]:
+        return await self.user_repo.get_user_by_id(id)
