@@ -1,10 +1,10 @@
 import logging
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
 from pydantic import EmailStr
 
 from schemas.auth import *
-from dependencies.auth import AuthDependency
+from dependencies.auth import AuthDependency, get_current_auth_user
 from exceptions.api_exceptions import APIException
 
 
@@ -56,8 +56,8 @@ async def signup(
     to confirm registration.
     """
     try:
-        await auth_service.signup(signup_data)
-        return SignInResponseSchema(status="OK")
+        status = await auth_service.signup(signup_data)
+        return SignInResponseSchema(status=status)
     except APIException as api_exception:
         raise api_exception
     except Exception as e:
@@ -87,8 +87,8 @@ async def signin(
     address to confirm registration.
     """
     try:
-        await auth_service.signin(signin_data)
-        return SignInResponseSchema(status="OK")
+        status = await auth_service.signin(signin_data)
+        return SignInResponseSchema(status=status)
     except APIException as api_exception:
         raise api_exception
     except Exception as e:
@@ -180,8 +180,24 @@ async def refresh_token(
 
 @router.post(
     path="/signout",
-    status_code=status.HTTP_204_NO_CONTENT,
-    summary="Signout from account"
+    response_model=SignOutResponseSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Signout",
+    response_description="Signout status"
     )
-async def signout() -> None:
-    pass
+async def signout(
+    auth_service: AuthDependency,
+    user_payload: PayloadSchema = Depends(get_current_auth_user)
+) -> SignOutResponseSchema:
+    """Endpoint to signout from account"""
+    try:
+        status = await auth_service.signout(user_payload.jid)
+        return SignOutResponseSchema(status=status)
+    except APIException as api_exception:
+        raise api_exception
+    except Exception as e:
+        log.error("Failed signout > %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Falied signout"
+        )

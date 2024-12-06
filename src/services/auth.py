@@ -130,7 +130,7 @@ class AuthService:
         add_code_in_redis_status = await redis_helper.add_verification_code(
                 email=email,
                 value=json.dumps(value),
-                expiration=settings.auth_jwt.verification_code_expiration_minutes,
+                expiration=settings.auth_jwt.verification_code_expiration_seconds,
             )
 
         if not add_code_in_redis_status:
@@ -289,3 +289,9 @@ class AuthService:
             raise TokenExpiredException
         except InvalidTokenError:
             raise InvalidTokenException
+        
+    async def signout(self, session_id: str) -> bool:
+        if await self.session_service.delete_session(session_id):
+            return await redis_helper.add_session_in_black_list(session_id, settings.auth_jwt.access_token_expire_minutes*60)
+        
+        return False

@@ -37,7 +37,7 @@ class SignInSchema(BaseModel):
 
 
 class BaseResponseSchema(BaseModel):
-    status: str
+    status: bool
 
 
 class SignUpResponseSchema(BaseResponseSchema):
@@ -45,6 +45,10 @@ class SignUpResponseSchema(BaseResponseSchema):
 
 
 class SignInResponseSchema(BaseResponseSchema):
+    pass
+
+
+class SignOutResponseSchema(BaseResponseSchema):
     pass
 
 

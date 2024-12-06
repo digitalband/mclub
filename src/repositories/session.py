@@ -40,10 +40,19 @@ class SessionRepository:
         except Exception as e:
             log.error("DB Failed update session > %s", e)
         
-    async def get_session_by_id(self, session_id) -> Session | None:
+    async def get_session_by_id(self, session_id: str) -> Session | None:
         return await self.get_session(id=session_id)
     
     async def get_session(self, **filter) -> Session | None:
         query = select(Session).filter_by(**filter).limit(1)
         user = await self.session.execute(query)
         return user.scalar_one_or_none()
+    
+    async def delete_session(self, session: Session) -> bool:
+        try:
+            await self.session.delete(session)
+            await self.session.commit()
+            return True
+        except Exception as e:
+            log.error("DB Failed delete session > %s", e)
+            return False

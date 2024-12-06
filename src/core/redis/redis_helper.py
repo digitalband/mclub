@@ -43,6 +43,7 @@ class RedisHelper:
                 "Failed delete_verification_code from Redis email > %s, error_message > %s",
                 email, e
             )
+        return False
 
     async def session_in_black_list(self, session_id: str) -> bool:
         try:
@@ -53,6 +54,18 @@ class RedisHelper:
                 "Failed token_in_black_list from Redis session_id > %s, error_message > %s",
                 session_id, e
             )
+        return False
+
+    async def add_session_in_black_list(self, session_id: str, expiration: int) -> bool:
+        try:
+            key = f"jid_black_list:{session_id}"
+            return await self.redis.set(name=key, value="signout", ex=expiration)
+        except Exception as e:
+            log.error(
+                "Failed add_token_in_black_list from Redis session_id > %s, error_message > %s",
+                session_id, e
+            )
+        return False
 
 redis_helper = RedisHelper(
     host=settings.redis.REDIS_HOST, 
