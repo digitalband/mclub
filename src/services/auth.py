@@ -55,14 +55,10 @@ class AuthService:
         
         token_pair = await self.__open_auth_session(user)
         return token_pair
-    
-    async def check_email_availability(self, email: str) -> bool:
-        user = await self.user_service.get_user_by_email(email)
-        return user is None
-    
+        
     async def auth_request(self, request_data: SignUpSchema | SignInSchema) -> bool:
         """Generating a verification code, and sending it to the user's email."""
-        if not await self.check_email_availability(request_data.email):
+        if not await self.user_service.check_email_availability(request_data.email):
             raise EmailAlreadyExistsException
 
         verification_code = await self.__create_verification_code(request_data)

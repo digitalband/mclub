@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from pydantic import EmailStr
 
 from schemas.auth import *
+from dependencies.user import UserDependency
 from dependencies.auth import AuthDependency, get_current_auth_user
 from exceptions.api_exceptions import APIException
 
@@ -21,11 +22,11 @@ log = logging.getLogger(__name__)
 )
 async def check_email(
     email: EmailStr,
-    auth_service: AuthDependency
+    user_service: UserDependency
 ) -> EmailAvailabilityResponseSchema:
     """Endpoint to checking email availability"""
     try:
-        email_exists = await auth_service.check_email_availability(email)
+        email_exists = await user_service.check_email_availability(email)
         return EmailAvailabilityResponseSchema(email_avaibility=email_exists)
     except APIException as api_exception:
         raise api_exception

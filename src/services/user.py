@@ -7,6 +7,10 @@ class UserService:
     def __init__(self, session: AsyncSession) -> None:
         self.user_repo = UserRepository(session=session)
 
+    async def check_email_availability(self, email: str) -> bool:
+        user = await self.get_user_by_email(email)
+        return user is None
+
     async def create_user(self, signup_data: SignUpSchema, role: str = "User") -> bool:
         user_created = await self.user_repo.create_user(signup_data, role=role)        
         return user_created is not None
