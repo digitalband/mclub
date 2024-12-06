@@ -5,7 +5,7 @@ from email.mime.text import MIMEText
 import aiofiles
 from aiosmtplib import SMTP
 
-from api_v1.email.schemas import MessageSchema
+from schemas.email import MessageSchema
 from core.config import settings
 
 

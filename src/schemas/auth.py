@@ -25,10 +25,6 @@ class RefreshTokenSchema(BaseModel):
     refresh_token: str
 
 
-class CheckEmailSchema(BaseModel):
-    email: EmailStr
-
-
 class SignUpSchema(BaseModel):
     email: EmailStr
     first_name: Annotated[str, Field(max_length=50)]

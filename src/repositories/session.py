@@ -41,9 +41,9 @@ class SessionRepository:
             log.error("DB Failed update session > %s", e)
         
     async def get_session_by_id(self, session_id) -> Session | None:
-        return await self.__get_session(id=session_id)
+        return await self.get_session(id=session_id)
     
-    async def __get_session(self, **filter) -> Session | None:
+    async def get_session(self, **filter) -> Session | None:
         query = select(Session).filter_by(**filter).limit(1)
         user = await self.session.execute(query)
         return user.scalar_one_or_none()

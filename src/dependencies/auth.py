@@ -1,16 +1,18 @@
 from typing import Annotated
 
 from fastapi import Depends
+from fastapi.security import APIKeyHeader
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
 from core.db.db_helper import db_helper
-from api_v1.auth.services import AuthService
+from schemas.auth import PayloadSchema
+from services.auth import AuthService
 
-SessionDependency = Annotated[AsyncSession, Depends(db_helper.get_session_dependency)]
+DBSessionDependency = Annotated[AsyncSession, Depends(db_helper.get_session_dependency)]
 
 
-def auth_service(session: SessionDependency) -> AuthService:
+def auth_service(session: DBSessionDependency) -> AuthService:
     return AuthService(
         private_key = settings.auth_jwt.private_key_path.read_text(),
         public_key = settings.auth_jwt.public_key_path.read_text(),
@@ -21,3 +23,11 @@ def auth_service(session: SessionDependency) -> AuthService:
 
 
 AuthDependency = Annotated[AuthService, Depends(auth_service)]
+
+
+async def get_current_auth_user(
+    auth_service: AuthDependency,
+    token: str = Depends(APIKeyHeader(name="X-API-Key"))
+) -> PayloadSchema:
+    """Получает токен и возвращает его payload"""
+    return await auth_service.validate_token(token)

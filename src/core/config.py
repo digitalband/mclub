@@ -52,7 +52,7 @@ class EmailSettings(BaseSettings):
     SMTP_PORT: int
     SMTP_USER: str
     SMTP_PASS: str
-    EMAIL_TEMPLATE_DIR: Path = BASE_DIR / "api_v1" / "email" / "templates"
+    EMAIL_TEMPLATE_DIR: Path = BASE_DIR / "static" / "email_templates"
 
     model_config = SettingsConfigDict(
         env_file=ENV_FILE_PATH, env_file_encoding="utf-8", extra="allow"

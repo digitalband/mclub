@@ -1,26 +1,23 @@
 import uuid
 import json
-import secrets
 import logging
+import secrets
 from datetime import datetime, timezone, timedelta
-from typing import Any, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, Any
+
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from jwt.exceptions import InvalidTokenError, ExpiredSignatureError
 
-from api_v1.auth.utils import JWTHandler
-from api_v1.auth.schemas import SignUpSchema, PayloadSchema, TokenPairSchema, \
-                                        VerificationCodeSchema, SignInSchema
-from api_v1.auth.repositories.user import UserRepository
-from api_v1.auth.repositories.session import SessionRepository
-from api_v1.exceptions import *
-from api_v1.email.services import EmailService
-from api_v1.email.schemas import MessageSchema, MessageType
 from core.config import settings
 from core.redis.redis_helper import redis_helper
-
-if TYPE_CHECKING:
-    from models.user import User
+from utils.auth import JWTHandler
+from schemas.auth import *
+from schemas.email import MessageSchema, MessageType
+from services.user import UserService
+from services.email import EmailService
+from services.session import SessionService
+from exceptions.api_exceptions import *
 
 log = logging.getLogger(__name__)
 
@@ -46,26 +43,16 @@ class AuthService:
             smtp_password=settings.email.SMTP_PASS
         )
         self.user_service = UserService(session=session)
-        self.session_repo = SessionRepository(session=session)
+        self.session_service = SessionService(session=session)
         self.verification_code_length = verification_code_length
 
     async def check_email_availability(self, email: str) -> bool:
-        """
-        Args:
-            email (str): email for checking
-
-        Returns:
-            bool: True if email available / False is email is busy
-        """
         user = await self.user_service.get_user_by_email(email)
         return user is None
-
+    
     async def signup(self, signup_data: SignUpSchema) -> bool:
         """
         Generating a verification code, and sending it to the user's email.
-
-        Args:
-            signup_data (SignUpSchema): The data required for user registration
 
         Returns:
             bool: True if the registration process is successful and 
@@ -95,9 +82,6 @@ class AuthService:
         """
         Generating a verification code, and sending it to the user's email.
 
-        Args:
-            signin_data (SignInSchema): The data required for user auth
-
         Returns:
             bool: True if the registration process is successful and 
             the verification code is sent; otherwise, an exception is raised.
@@ -120,19 +104,13 @@ class AuthService:
             raise ValueError("Email don't send")
 
         return True
-
+    
     async def __create_verification_code(
         self, email: str, *, signup_data: Optional[SignUpSchema] = None
     ) -> str | None:
         """
         Generates a verification code for the given email and stores it in Redis
-        
-        Args:
-            email (str): The email address to which the verification code will be sent.
-            signup_data (Optional[SignUpSchema]): An optional schema containing 
-            additional signup information. If provided, this data will be included 
-            in the stored value alongside the verification code.
-            
+
         Returns:
             str | None: Returns the generated verification code as a string if the 
             code was successfully added to Redis; otherwise, returns None.
@@ -159,7 +137,7 @@ class AuthService:
             return None
         
         return verification_code
-
+    
     async def __send_verification_code(self, email: str, verification_code: str) -> bool:
         """
         Sends a confirmation code to the specified email
@@ -182,18 +160,9 @@ class AuthService:
         )
 
         return email_status
-
+    
     async def verify_code(self, verification_data: VerificationCodeSchema) -> TokenPairSchema:
-        """
-        Verifying the confirmation code.
-        
-        Args:
-            verification_data (VerificationCodeSchema): email and verification_code
-
-        Returns:
-            TokenPairSchema: An object containing the generated
-                             access and refresh tokens.
-        """
+        """Verifying the confirmation code"""
         data = await redis_helper.get_verification_code(email=verification_data.email)
         
         if data is None:
@@ -217,16 +186,7 @@ class AuthService:
         return token_pair
     
     async def __open_auth_session(self, email: str) -> TokenPairSchema:
-        """
-        Created new session for user
-
-        Args:
-            email (str): user email for created session        
-        
-        Returns:
-            TokenPairSchema: An object containing the generated
-                             access and refresh tokens.
-        """
+        """Created new session for user"""
         session_id = str(uuid.uuid4())
         user = await self.user_service.get_user_by_email(email)
         
@@ -244,7 +204,7 @@ class AuthService:
 
         token_pair = self.__generate_auth_token_pair(payload) # TODO: add async
 
-        await self.session_repo.create_session(
+        await self.session_service.create_session(
             user_id=user.id,
             session_id=session_id,
             refresh_token=token_pair.refresh_token,
@@ -252,19 +212,9 @@ class AuthService:
         )
 
         return token_pair
-
+    
     def __generate_auth_token_pair(self, payload: PayloadSchema) -> TokenPairSchema:
-        """
-        Generates a pair of tokens (access and refresh)
-
-        Args:
-            payload (PayloadSchema): An object containing the data for
-                                     token generation.
-
-        Returns:
-            TokenPairSchema: An object containing the generated
-                             access and refresh tokens.
-        """
+        """Generates a pair of tokens (access and refresh)"""
         payload_data = payload.model_dump()
 
         access_token = self.__generate_auth_token(payload_data, is_refresh=False)
@@ -273,18 +223,7 @@ class AuthService:
         return TokenPairSchema(access_token=access_token, refresh_token=refresh_token)
 
     def __generate_auth_token(self, payload_data: dict[str, Any], is_refresh: bool) -> str:
-        """
-        Generates a JWT token based on the provided payload data.
-
-        Args:
-            payload_data (dict[str, Any]): A dictionary containing the data
-                                           to be encoded in the token.
-            is_refresh (bool): A flag indicating whether the token being
-                               generated is a refresh token.
-
-        Returns:
-            str: The encoded JWT token as a string.
-        """
+        """Generates a JWT token based on the provided payload data."""
         payload_data["is_refresh"] = is_refresh
 
         if is_refresh:
@@ -295,22 +234,16 @@ class AuthService:
         return self.jwt_handler.encode(
             payload=payload_data, expire_token=expire_minutes
         )
-
+    
     async def refresh_token(self, refresh_token: str) -> TokenPairSchema:
-        """
-        Generate new token pair (access and refresh) tokens
-
-        Returns:
-            TokenPairSchema: An object containing the generated
-                             access and refresh tokens.
-        """
+        """Generate new token pair (access and refresh) tokens"""
         payload = await self.validate_token(refresh_token, is_refresh=True)
         user = await self.user_service.get_user_by_id(int(payload.sub))
         
         if not user.is_active:
             raise InvalidTokenException
 
-        session = await self.session_repo.get_session_by_id(payload.jid)
+        session = await self.session_service.get_session_by_id(payload.jid)
 
         if session is None:
             raise InvalidTokenException
@@ -321,32 +254,23 @@ class AuthService:
         payload.role = user.role
         token_pair = self.__generate_auth_token_pair(payload)
 
-        await self.session_repo.update_session(
+        await self.session_service.update_session(
             session=session,
             refresh_token=token_pair.refresh_token,
             expires_at=datetime.now(timezone.utc)+timedelta(minutes=settings.auth_jwt.refresh_token_expire_minutes)
         )
 
         return token_pair
-
+    
     async def validate_token(self, token: str, is_refresh: bool = False) -> PayloadSchema:
         """
         Validates the provided jwt token.
 
         This method checks the token's payload, verifies if it is a refresh token 
         (if applicable), and checks if the token is in a blacklist.
-
-        Args:
-            token (str): The jwt token to be validated.
-            is_refresh (bool): A flag indicating whether the token is expected 
-                               to be a refresh token. Defaults to False.
-
-        Returns:
-            PayloadSchema: The payload extracted from the token if validation 
-                           is successful.
         """
         payload = self.get_payload_from_token(token) # TODO: add async
-
+        print(payload)
         if payload.is_refresh != is_refresh:
             raise InvalidTokenException
 
@@ -354,17 +278,9 @@ class AuthService:
             raise InvalidTokenException
 
         return payload
-
+    
     def get_payload_from_token(self, token: str) -> PayloadSchema:
-        """
-        Decodes the provided JWT and extracts the payload.
-
-        Args:
-            token (str): The JWT to be decoded.
-
-        Returns:
-            PayloadSchema: The payload extracted from the token.
-        """
+        """Decodes the provided JWT and extracts the payload."""
         try:
             payload_dict = self.jwt_handler.decode(token=token) # TODO: add async
             payload = PayloadSchema(**payload_dict)
@@ -373,28 +289,3 @@ class AuthService:
             raise TokenExpiredException
         except InvalidTokenError:
             raise InvalidTokenException
-
-
-class UserService:
-    def __init__(self, session: AsyncSession) -> None:
-        self.user_repo = UserRepository(session=session)
-   
-    async def create_user(
-        self, signup_data: SignUpSchema, role: str = "User"
-    ) -> bool:
-        """
-        Args:
-            signup_data (SignUpSchema): The data required for created user
-            role (str): role for created user
-
-        Returns:
-            bool: True if user created succcess, False if user don't created
-        """
-        user_created = await self.user_repo.create_user(signup_data, role=role)        
-        return user_created is not None
-
-    async def get_user_by_email(self, email: str) -> Optional["User"]:
-        return await self.user_repo.get_user_by_email(email)
-    
-    async def get_user_by_id(self, id: int) -> Optional["User"]:
-        return await self.user_repo.get_user_by_id(id)
