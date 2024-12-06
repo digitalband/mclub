@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Annotated, Optional
 
 from pydantic import BaseModel, Field, EmailStr
@@ -10,6 +11,13 @@ class PayloadSchema(BaseModel):
     jid: str
     role: Annotated[str, Field(max_length=8)]
     is_refresh: bool = False
+
+
+class SessionSchema(BaseModel):
+    user_id: int
+    session_id: str
+    refresh_token: str
+    expires_at: datetime
 
 
 class TokenPairSchema(BaseModel):
@@ -34,6 +42,10 @@ class SignUpSchema(BaseModel):
 
 class SignInSchema(BaseModel):
     email: EmailStr
+
+
+class SignInWithPasswordSchema(SignInSchema):
+    password: str
 
 
 class BaseResponseSchema(BaseModel):

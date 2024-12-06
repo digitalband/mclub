@@ -38,7 +38,7 @@ async def check_email(
 
 
 @router.post(
-    path="/signup",
+    path="/request/signup",
     response_model=SignUpResponseSchema,
     status_code=status.HTTP_202_ACCEPTED,
     summary="Registration",
@@ -56,7 +56,7 @@ async def signup(
     to confirm registration.
     """
     try:
-        status = await auth_service.signup(signup_data)
+        status = await auth_service.auth_request(signup_data)
         return SignInResponseSchema(status=status)
     except APIException as api_exception:
         raise api_exception
@@ -69,7 +69,7 @@ async def signup(
     
 
 @router.post(
-    path="/signin",
+    path="/request/signin",
     response_model=SignInResponseSchema,
     status_code=status.HTTP_202_ACCEPTED,
     summary="Login",
@@ -87,7 +87,7 @@ async def signin(
     address to confirm registration.
     """
     try:
-        status = await auth_service.signin(signin_data)
+        status = await auth_service.auth_request(signin_data)
         return SignInResponseSchema(status=status)
     except APIException as api_exception:
         raise api_exception
@@ -106,7 +106,7 @@ async def signin(
     summary="Verifying the confirmation code",
     response_description="Return access and refresh tokens"
 )
-async def verify_code(
+async def check_verification_code(
     verification_data: VerificationCodeSchema,
     auth_service: AuthDependency
 ) -> TokenPairSchema:
@@ -116,7 +116,7 @@ async def verify_code(
     This endpoint allows users to enter a confirmation code, sent to their email.
     """
     try:
-        token_pair = await auth_service.verify_code(verification_data)
+        token_pair = await auth_service.check_verification_code(verification_data)
         return token_pair
     except APIException as api_exception:
         raise api_exception
@@ -200,4 +200,28 @@ async def signout(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Falied signout"
+        )
+
+
+@router.post(
+    path="/admin/signin",
+    response_model=TokenPairSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Login Admin",
+    response_description="Return access and refresh tokens"
+)
+async def signin_with_password(
+    signin_data: SignInWithPasswordSchema,
+    auth_service: AuthDependency
+) -> TokenPairSchema:
+    try:
+        token_pair = await auth_service.signin_with_password(signin_data)
+        return token_pair
+    except APIException as api_exception:
+        raise api_exception
+    except Exception as e:
+        log.error("Failed admin signin > %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Falied admin signin"
         )

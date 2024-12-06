@@ -11,8 +11,8 @@ class UserService:
         user_created = await self.user_repo.create_user(signup_data, role=role)        
         return user_created is not None
 
-    async def get_user_by_id(self, id: int) -> User:
+    async def get_user_by_id(self, id: int) -> User | None:
         return await self.user_repo.get_user(id=id)
     
-    async def get_user_by_email(self, email: str) -> User:
+    async def get_user_by_email(self, email: str) -> User | None:
         return await self.user_repo.get_user(email=email)

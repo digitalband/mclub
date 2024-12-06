@@ -29,6 +29,11 @@ class TokenExpiredException(APIException):
     detail = "Token has expired"
 
 
+class UnauthorizedUserException(APIException):
+    status_code = status.HTTP_403_FORBIDDEN
+    detail="No rights to perform this action"
+
+
 class EmailNotFoundException(APIException):
     status_code = status.HTTP_404_NOT_FOUND
     detail = "Email not found"
